@@ -4,8 +4,8 @@
 AMD Ryzen 3 3200U with Radeon Vega Mobile Gfx  
 
 ## restrictions
-NEO4J_dbms_memory_pagecache_size=1G
-NEO4J_dbms.memory.heap.initial_size=1G
+NEO4J_dbms_memory_pagecache_size=1G1 <br/>
+NEO4J_dbms.memory.heap.initial_size=1G <br/>
 NEO4J_dbms_memory_heap_max__size=1G
 
 ## benchmarks
