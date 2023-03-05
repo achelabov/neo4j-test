@@ -7,14 +7,15 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/fatih/structs"
 	"github.com/neo4j/neo4j-go-driver/v5/neo4j"
 	"github.com/neo4j/neo4j-go-driver/v5/neo4j/db"
 )
 
 type User struct {
-	Name string
-	Lo   int64
-	Go   int64
+	Name string `json:"name"`
+	Lo   int64  `json:"lo"`
+	Go   int64  `json:"go"`
 }
 
 func handleCreatePartnerRecord(record *db.Record) (*User, error) {
@@ -62,11 +63,11 @@ func createUser(ctx context.Context, user *User) neo4j.ManagedTransactionWorkT[*
 // doesn't work
 func createUsers(ctx context.Context, users []*User) neo4j.ManagedTransactionWorkT[[]*User] {
 	return func(tx neo4j.ManagedTransaction) ([]*User, error) {
-		result, err := tx.Run(ctx, `WITH @users AS users
-									UNWIND users AS user
-									CREATE (p:Partner {name: user.name, lo: user.lo, go: user.go})
+		log.Println(mapUsers(users))
+		result, err := tx.Run(ctx, `UNWIND $users AS user
+									MERGE (p:Partner {name: user.name, lo: user.lo, go: user.go})
 									RETURN p`, map[string]any{
-			"users": users,
+			"users": mapUsers(users),
 		})
 		if err != nil {
 			return nil, err
@@ -81,11 +82,22 @@ func createUsers(ctx context.Context, users []*User) neo4j.ManagedTransactionWor
 				return nil, err
 			}
 			users[cntr] = user
+			log.Println(user, "created")
 			cntr++
 		}
 
 		return users, nil
 	}
+}
+
+func mapUsers(users []*User) []map[string]interface{} {
+	var result = make([]map[string]interface{}, len(users))
+
+	for index, item := range users {
+		result[index] = structs.Map(*item)
+	}
+
+	return result
 }
 
 func createPartner(ctx context.Context, driver neo4j.DriverWithContext, user *User) (*User, error) {
@@ -116,6 +128,23 @@ func createPartners(ctx context.Context, driver neo4j.DriverWithContext, count i
 	}
 
 	return users, nil
+}
+
+func createPartnersUnwind(ctx context.Context, driver neo4j.DriverWithContext, count int) ([]*User, error) {
+	session := driver.NewSession(ctx, neo4j.SessionConfig{})
+	defer session.Close(ctx)
+
+	users := make([]*User, count)
+
+	for i, _ := range users {
+		users[i] = &User{
+			Name: "user" + strconv.Itoa(i+1),
+			Lo:   100,
+			Go:   100,
+		}
+	}
+
+	return neo4j.ExecuteWrite(ctx, session, createUsers(ctx, users))
 }
 
 const (
@@ -181,18 +210,44 @@ func createBinaryTree(ctx context.Context, driver neo4j.DriverWithContext, verti
 	return nil
 }
 
-/*
-TODO
+func getUsers(ctx context.Context, headVertex string, minDepth, maxDepth int) neo4j.ManagedTransactionWorkT[[]*User] {
+	return func(tx neo4j.ManagedTransaction) ([]*User, error) {
+		result, err := tx.Run(ctx,
+			fmt.Sprintf("MATCH (:Partner {name: $name})-[:HAS_PARTNER*%d..%d]->(p:Partner) RETURN p",
+				minDepth, maxDepth),
+			map[string]any{
+				"name": headVertex,
+				"min":  minDepth,
+				"max":  maxDepth,
+			})
+		if err != nil {
+			return nil, err
+		}
 
-	func getUsers(ctx context.Context, driver neo4j.DriverWithContext, headVertex string) ([]*User, error) {
-		session := driver.NewSession(ctx, neo4j.SessionConfig{})
-		defer session.Close(ctx)
+		users := make([]*User, 0)
+		for result.Next(ctx) {
+			record := result.Record()
+			user, err := handleCreatePartnerRecord(record)
+			if err != nil {
+				return nil, err
+			}
+			users = append(users, user)
+		}
 
+		return users, nil
+	}
 }
-*/
+
+func getPartners(ctx context.Context, driver neo4j.DriverWithContext,
+	headVertex string, minDepth, maxDepth int) ([]*User, error) {
+	session := driver.NewSession(ctx, neo4j.SessionConfig{})
+	defer session.Close(ctx)
+
+	return neo4j.ExecuteRead(ctx, session, getUsers(ctx, headVertex, minDepth, maxDepth))
+}
 
 func main() {
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
 	driver, err := neo4j.NewDriverWithContext("neo4j://localhost:7687", neo4j.BasicAuth("neo4j", "password", ""))
@@ -200,6 +255,15 @@ func main() {
 		log.Fatal(err)
 	}
 	defer driver.Close(ctx)
+
+	partners, err := getPartners(ctx, driver, "user1", 0, 16)
+	if err != nil {
+		log.Fatal(err)
+	}
+	for _, p := range partners {
+		log.Println(p, "received")
+	}
+	log.Println("users count:", len(partners))
 
 	/*
 		partner, err := createPartner(ctx, driver, &User{Name: "user1", Lo: 100, Go: 100})
@@ -211,7 +275,7 @@ func main() {
 		_, err = createPartners(ctx, driver, 1001)
 		if err != nil {
 			log.Fatal(err)
-
+		}
 	*/
 	/*
 		if err := createPartnersRelation(ctx, driver, "user1", "user2"); err != nil {
@@ -223,7 +287,15 @@ func main() {
 			log.Fatal(err)
 		}
 	*/
-	if err := createBinaryTree(ctx, driver, 1001); err != nil {
-		log.Fatal(err)
-	}
+	/*
+		if err := createBinaryTree(ctx, driver, 10001); err != nil {
+			log.Fatal(err)
+		}
+	*/
+	/*
+		_, err = createPartnersUnwind(ctx, driver, 101)
+		if err != nil {
+			log.Fatal(err)
+		}
+	*/
 }
