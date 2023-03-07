@@ -41,9 +41,9 @@ func BenchmarkCreate10kPartners(b *testing.B) {
 	createPartnersUnwind(ctx, driver, 10000)
 }
 
-func BenchmarkCreate100BinaryTreeRelations(b *testing.B) {
+func BenchmarkCreateBinaryTree(b *testing.B) {
 	ctx := context.Background()
 	for n := 0; n < b.N; n++ {
-		createBinnaryTreeRelationsUnwind(ctx, driver, 100)
+		createBinnaryTreeUnwind(ctx, driver, 100)
 	}
 }

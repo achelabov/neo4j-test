@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log"
 	"strconv"
@@ -136,11 +137,14 @@ func createPartnersUnwind(ctx context.Context, driver neo4j.DriverWithContext, c
 	return neo4j.ExecuteWrite(ctx, session, createUsers(ctx, count))
 }
 
+type status bool
+
 const (
-	success = true
+	success status = true
+	failed  status = false
 )
 
-func createPartnersRelation(ctx context.Context, driver neo4j.DriverWithContext, fromUser, toUser string) error {
+func createPartnersRelation(ctx context.Context, driver neo4j.DriverWithContext, fromUser, toUser string) (status, error) {
 	session := driver.NewSession(ctx, neo4j.SessionConfig{})
 	defer session.Close(ctx)
 
@@ -154,102 +158,70 @@ func createPartnersRelation(ctx context.Context, driver neo4j.DriverWithContext,
 				"u2": toUser,
 			})
 		if err != nil {
-			return nil, err
+			return failed, err
 		}
 
 		return success, nil
 	})
 	if err != nil {
-		return err
+		return failed, err
 	}
 
 	log.Print("created ", fromUser, "-has_partner->", toUser, " relation")
-	return nil
+	return success, nil
 }
 
 func createBinaryTreeRelations(ctx context.Context, driver neo4j.DriverWithContext, usersCount int) error {
 	for i := 1; i <= usersCount/2; i++ {
 		from := "user" + strconv.Itoa(i)
 
+		var err error
+		var resp status
 		toLeft := "user" + strconv.Itoa(i*2)
-		if err := createPartnersRelation(ctx, driver, from, toLeft); err != nil {
+		if resp, err = createPartnersRelation(ctx, driver, from, toLeft); err != nil {
 			return err
 		}
-
+		if resp != success {
+			return errors.New("create partners relation failed")
+		}
 		toRight := "user" + strconv.Itoa(i*2+1)
-		if err := createPartnersRelation(ctx, driver, from, toRight); err != nil {
+		if resp, err = createPartnersRelation(ctx, driver, from, toRight); err != nil {
 			return err
 		}
-
+		if resp != success {
+			return errors.New("create partners relation failed")
+		}
 	}
 
 	return nil
 }
 
-func createBinnaryTreeRelationsLeftUnwind(ctx context.Context, driver neo4j.DriverWithContext, usersCount int) error {
+func createBinnaryTreeUnwind(ctx context.Context, driver neo4j.DriverWithContext, usersCount int) (status, error) {
 	session := driver.NewSession(ctx, neo4j.SessionConfig{})
 	defer session.Close(ctx)
 
 	_, err := session.ExecuteWrite(ctx, func(tx neo4j.ManagedTransaction) (any, error) {
 		_, err := tx.Run(ctx, `
 		UNWIND RANGE (1,$count) as idx
-		MATCH (p1:Partner {name: 'user' + idx})
-		MATCH (p2:Partner {name: 'user' + idx * 2})
-		CREATE (p1)-[:HAS_PARTNER]->(p2)`,
+		MERGE (p1:Partner {name: 'user' + idx})
+		MERGE (p2:Partner {name: 'user' + (idx * 2)})
+		MERGE (p3:Partner {name: 'user' + (idx * 2+1)})
+		CREATE (p1)-[:HAS_PARTNER]->(p2)
+		CREATE (p1)-[:HAS_PARTNER]->(p3)`,
 			map[string]any{
 				"count": usersCount / 2,
 			})
 		if err != nil {
-			return nil, err
+			return failed, err
 		}
 
 		return success, nil
 	})
 	if err != nil {
-		return err
+		return failed, err
 	}
 
-	return nil
-}
-
-func createBinnaryTreeRelationsRightUnwind(ctx context.Context, driver neo4j.DriverWithContext, usersCount int) error {
-	session := driver.NewSession(ctx, neo4j.SessionConfig{})
-	defer session.Close(ctx)
-
-	_, err := session.ExecuteWrite(ctx, func(tx neo4j.ManagedTransaction) (any, error) {
-		_, err := tx.Run(ctx, `
-		UNWIND RANGE (1,$count) as idx
-		MATCH (p1:Partner {name: 'user' + idx})
-		MATCH (p2:Partner {name: 'user' + idx * 2 + 1})
-		CREATE (p1)-[:HAS_PARTNER]->(p2)`,
-			map[string]any{
-				"count": usersCount / 2,
-			})
-		if err != nil {
-			return nil, err
-		}
-
-		return success, nil
-	})
-	if err != nil {
-		return err
-	}
-
-	return nil
-}
-
-func createBinnaryTreeRelationsUnwind(ctx context.Context, driver neo4j.DriverWithContext, usersCount int) error {
-	session := driver.NewSession(ctx, neo4j.SessionConfig{})
-	defer session.Close(ctx)
-
-	if err := createBinnaryTreeRelationsLeftUnwind(ctx, driver, 100); err != nil {
-		return err
-	}
-	if err := createBinnaryTreeRelationsRightUnwind(ctx, driver, 100); err != nil {
-		return err
-	}
-
-	return nil
+	return success, nil
 }
 
 func createBinaryTree(ctx context.Context, driver neo4j.DriverWithContext, verticesCount int) error {
@@ -327,15 +299,10 @@ func main() {
 		}
 	*/
 	startTime := time.Now().UnixMilli()
-	_, err = createPartnersUnwind(ctx, driver, 101)
-	if err != nil {
+	if _, err := createBinnaryTreeUnwind(ctx, driver, 11); err != nil { //тут можно 3 аргументом количество вершин написать
 		log.Fatal(err)
 	}
-
-	if err := createBinnaryTreeRelationsUnwind(ctx, driver, 100); err != nil {
-		log.Fatal(err)
-	}
-	log.Println("execution time:", time.Now().UnixMilli()-startTime)
+	log.Println("success. execution time:", time.Now().UnixMilli()-startTime, "unixMilli")
 
 	/*
 		if err := createBinaryTreeRelations(ctx, driver, 50000); err != nil {
