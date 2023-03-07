@@ -35,3 +35,15 @@ func BenchmarkGetPartnersFrom1To14Lvl(b *testing.B) {
 		getPartners(ctx, driver, "user1", 1, 14)
 	}
 }
+
+func BenchmarkCreate10kPartners(b *testing.B) {
+	ctx := context.Background()
+	createPartnersUnwind(ctx, driver, 10000)
+}
+
+func BenchmarkCreate100BinaryTreeRelations(b *testing.B) {
+	ctx := context.Background()
+	for n := 0; n < b.N; n++ {
+		createBinnaryTreeRelationsUnwind(ctx, driver, 100)
+	}
+}

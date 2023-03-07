@@ -60,20 +60,19 @@ func createUser(ctx context.Context, user *User) neo4j.ManagedTransactionWorkT[*
 	}
 }
 
-// doesn't work
-func createUsers(ctx context.Context, users []*User) neo4j.ManagedTransactionWorkT[[]*User] {
+func createUsers(ctx context.Context, usersCount int) neo4j.ManagedTransactionWorkT[[]*User] {
 	return func(tx neo4j.ManagedTransaction) ([]*User, error) {
-		log.Println(mapUsers(users))
-		result, err := tx.Run(ctx, `UNWIND $users AS user
-									MERGE (p:Partner {name: user.name, lo: user.lo, go: user.go})
-									RETURN p`, map[string]any{
-			"users": mapUsers(users),
+		result, err := tx.Run(ctx, `
+		UNWIND RANGE (1,$count) as idx
+		CREATE (p:Partner {name: "user" + idx, lo: 100, go: 100})
+		RETURN p`, map[string]any{
+			"count": usersCount,
 		})
 		if err != nil {
 			return nil, err
 		}
 
-		users := make([]*User, len(users))
+		users := make([]*User, usersCount)
 		cntr := 0
 		for result.Next(ctx) {
 			record := result.Record()
@@ -134,22 +133,11 @@ func createPartnersUnwind(ctx context.Context, driver neo4j.DriverWithContext, c
 	session := driver.NewSession(ctx, neo4j.SessionConfig{})
 	defer session.Close(ctx)
 
-	users := make([]*User, count)
-
-	for i, _ := range users {
-		users[i] = &User{
-			Name: "user" + strconv.Itoa(i+1),
-			Lo:   100,
-			Go:   100,
-		}
-	}
-
-	return neo4j.ExecuteWrite(ctx, session, createUsers(ctx, users))
+	return neo4j.ExecuteWrite(ctx, session, createUsers(ctx, count))
 }
 
 const (
 	success = true
-	failed  = false
 )
 
 func createPartnersRelation(ctx context.Context, driver neo4j.DriverWithContext, fromUser, toUser string) error {
@@ -157,15 +145,16 @@ func createPartnersRelation(ctx context.Context, driver neo4j.DriverWithContext,
 	defer session.Close(ctx)
 
 	_, err := session.ExecuteWrite(ctx, func(tx neo4j.ManagedTransaction) (any, error) {
-		_, err := tx.Run(ctx, `MATCH (p1:Partner {name: $u1})
-							   MATCH (p2:Partner {name: $u2})
-							   CREATE (p1)-[:HAS_PARTNER]->(p2)`,
+		_, err := tx.Run(ctx, `
+		MATCH (p1:Partner {name: $u1})
+		MATCH (p2:Partner {name: $u2})
+		CREATE (p1)-[:HAS_PARTNER]->(p2)`,
 			map[string]any{
 				"u1": fromUser,
 				"u2": toUser,
 			})
 		if err != nil {
-			return failed, err
+			return nil, err
 		}
 
 		return success, nil
@@ -197,8 +186,74 @@ func createBinaryTreeRelations(ctx context.Context, driver neo4j.DriverWithConte
 	return nil
 }
 
+func createBinnaryTreeRelationsLeftUnwind(ctx context.Context, driver neo4j.DriverWithContext, usersCount int) error {
+	session := driver.NewSession(ctx, neo4j.SessionConfig{})
+	defer session.Close(ctx)
+
+	_, err := session.ExecuteWrite(ctx, func(tx neo4j.ManagedTransaction) (any, error) {
+		_, err := tx.Run(ctx, `
+		UNWIND RANGE (1,$count) as idx
+		MATCH (p1:Partner {name: 'user' + idx})
+		MATCH (p2:Partner {name: 'user' + idx * 2})
+		CREATE (p1)-[:HAS_PARTNER]->(p2)`,
+			map[string]any{
+				"count": usersCount / 2,
+			})
+		if err != nil {
+			return nil, err
+		}
+
+		return success, nil
+	})
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func createBinnaryTreeRelationsRightUnwind(ctx context.Context, driver neo4j.DriverWithContext, usersCount int) error {
+	session := driver.NewSession(ctx, neo4j.SessionConfig{})
+	defer session.Close(ctx)
+
+	_, err := session.ExecuteWrite(ctx, func(tx neo4j.ManagedTransaction) (any, error) {
+		_, err := tx.Run(ctx, `
+		UNWIND RANGE (1,$count) as idx
+		MATCH (p1:Partner {name: 'user' + idx})
+		MATCH (p2:Partner {name: 'user' + idx * 2 + 1})
+		CREATE (p1)-[:HAS_PARTNER]->(p2)`,
+			map[string]any{
+				"count": usersCount / 2,
+			})
+		if err != nil {
+			return nil, err
+		}
+
+		return success, nil
+	})
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func createBinnaryTreeRelationsUnwind(ctx context.Context, driver neo4j.DriverWithContext, usersCount int) error {
+	session := driver.NewSession(ctx, neo4j.SessionConfig{})
+	defer session.Close(ctx)
+
+	if err := createBinnaryTreeRelationsLeftUnwind(ctx, driver, 100); err != nil {
+		return err
+	}
+	if err := createBinnaryTreeRelationsRightUnwind(ctx, driver, 100); err != nil {
+		return err
+	}
+
+	return nil
+}
+
 func createBinaryTree(ctx context.Context, driver neo4j.DriverWithContext, verticesCount int) error {
-	_, err := createPartners(ctx, driver, verticesCount)
+	_, err := createPartnersUnwind(ctx, driver, verticesCount)
 	if err != nil {
 		return err
 	}
@@ -247,7 +302,7 @@ func getPartners(ctx context.Context, driver neo4j.DriverWithContext,
 }
 
 func main() {
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), 50000*time.Second)
 	defer cancel()
 
 	driver, err := neo4j.NewDriverWithContext("neo4j://localhost:7687", neo4j.BasicAuth("neo4j", "password", ""))
@@ -255,35 +310,35 @@ func main() {
 		log.Fatal(err)
 	}
 	defer driver.Close(ctx)
-
-	partners, err := getPartners(ctx, driver, "user1", 0, 16)
-	if err != nil {
-		log.Fatal(err)
-	}
-	for _, p := range partners {
-		log.Println(p, "received")
-	}
-	log.Println("users count:", len(partners))
-
+	/*
+		partners, err := getPartners(ctx, driver, "user1", 0, 16)
+		if err != nil {
+			log.Fatal(err)
+		}
+		for _, p := range partners {
+			log.Println(p, "received")
+		}
+		log.Println("users count:", len(partners))
+	*/
 	/*
 		partner, err := createPartner(ctx, driver, &User{Name: "user1", Lo: 100, Go: 100})
 		if err != nil {
 			log.Fatal(err)
 		}
 	*/
+	startTime := time.Now().UnixMilli()
+	_, err = createPartnersUnwind(ctx, driver, 101)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	if err := createBinnaryTreeRelationsUnwind(ctx, driver, 100); err != nil {
+		log.Fatal(err)
+	}
+	log.Println("execution time:", time.Now().UnixMilli()-startTime)
+
 	/*
-		_, err = createPartners(ctx, driver, 1001)
-		if err != nil {
-			log.Fatal(err)
-		}
-	*/
-	/*
-		if err := createPartnersRelation(ctx, driver, "user1", "user2"); err != nil {
-			log.Fatal(err)
-		}
-	*/
-	/*
-		if err := createBinaryTreeRelations(ctx, driver, 100); err != nil {
+		if err := createBinaryTreeRelations(ctx, driver, 50000); err != nil {
 			log.Fatal(err)
 		}
 	*/
