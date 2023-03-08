@@ -303,7 +303,7 @@ func main() {
 	*/
 
 	startTime := time.Now().UnixMilli()
-	if _, err := createBinnaryTreeUnwind(ctx, driver, 11); err != nil { //тут можно 3 аргументом количество вершин написать
+	if _, err := createBinnaryTreeUnwind(ctx, driver, 11); err != nil {
 		log.Fatal(err)
 	}
 	log.Println("success. execution time:", time.Now().UnixMilli()-startTime, "unixMilli")

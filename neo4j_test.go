@@ -10,6 +10,7 @@ import (
 var driver, _ = neo4j.NewDriverWithContext("neo4j://localhost:7687", neo4j.BasicAuth("neo4j", "password", ""))
 
 // 10k tree
+/*
 func BenchmarkGetPartnersFrom1To5Lvl10kVerticesTree(b *testing.B) {
 	ctx := context.Background()
 	for n := 0; n < b.N; n++ {
@@ -36,7 +37,7 @@ func BenchmarkGetPartnersFrom1To14Lvl10kVerticesTree(b *testing.B) {
 		getPartners(ctx, driver, "user1", 1, 14)
 	}
 }
-
+*/
 // 100k tree
 func BenchmarkGetPartnersFrom16To16Lvl100kVerticesTree(b *testing.B) {
 	ctx := context.Background()

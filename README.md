@@ -19,10 +19,38 @@ BenchmarkGetPartnersFrom1To14Lvl10kVerticesTree-4             5         23438486
 ```
 
 100k users traversal
+getting only vertices
 ```
 BenchmarkGetPartnersFrom16To16Lvl100kVerticesTree-4            2         982297238 ns/op // 0,98229s
 BenchmarkGetPartnersFrom13To16Lvl100kVerticesTree-4            1        2037339449 ns/op // 2,03734s
 BenchmarkGetPartnersFrom10To13Lvl100kVerticesTree-4            4         343504682 ns/op // 0,34350s
 BenchmarkGetPartnersFrom7To10Lvl100kVerticesTree-4            24          45678948 ns/op // 0,04568s
 BenchmarkGetPartnersFrom1To16Lvl100kVerticesTree-4             1        2325799834 ns/op // 2,32580s
+```
+
+getting only edges
+```
+BenchmarkGetPartnersFrom16To16Lvl100kVerticesTree-4            1        10930561534 ns/op // 10,93056s
+BenchmarkGetPartnersFrom13To16Lvl100kVerticesTree-4            1        22647509097 ns/op // 22,64751s
+BenchmarkGetPartnersFrom10To13Lvl100kVerticesTree-4            1         3121065196 ns/op // 3,121065s
+BenchmarkGetPartnersFrom7To10Lvl100kVerticesTree-4             3          354320346 ns/op // 0,354320s
+BenchmarkGetPartnersFrom1To16Lvl100kVerticesTree-4             1        24313401696 ns/op // 24,31340s
+```
+
+getting vertices with edges
+```
+BenchmarkGetPartnersFrom16To16Lvl100kVerticesTree-4            1        12070492489 ns/op // 12,07049s
+BenchmarkGetPartnersFrom13To16Lvl100kVerticesTree-4            1        25704931313 ns/op // 25,70493s
+BenchmarkGetPartnersFrom10To13Lvl100kVerticesTree-4            1         3655351610 ns/op // 3,655352s
+BenchmarkGetPartnersFrom7To10Lvl100kVerticesTree-4             3          408181904 ns/op // 0,408182s
+BenchmarkGetPartnersFrom1To16Lvl100kVerticesTree-4             1        28312419840 ns/op // 28,31242s
+```
+
+getting the path to each vertex
+```
+BenchmarkGetPartnersFrom16To16Lvl100kVerticesTree-4            1        16692635436 ns/op // 16,69264s
+BenchmarkGetPartnersFrom13To16Lvl100kVerticesTree-4            1        36030002807 ns/op // 36,03000s
+BenchmarkGetPartnersFrom10To13Lvl100kVerticesTree-4            1         4827670956 ns/op // 4,827670s
+BenchmarkGetPartnersFrom7To10Lvl100kVerticesTree-4             2          562781340 ns/op // 0,562781s
+BenchmarkGetPartnersFrom1To16Lvl100kVerticesTree-4             1        38732582739 ns/op // 38,73258s
 ```
