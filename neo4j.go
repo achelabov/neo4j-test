@@ -25,20 +25,22 @@ func handleCreatePartnerRecord(record *db.Record) (*User, error) {
 		return nil, fmt.Errorf("could not find column")
 	}
 	userNode := rawUserNode.(neo4j.Node)
-	l, err := neo4j.GetProperty[int64](userNode, "lo")
-	if err != nil {
-		return nil, err
-	}
-	g, err := neo4j.GetProperty[int64](userNode, "go")
-	if err != nil {
-		return nil, err
-	}
+	/*
+		l, err := neo4j.GetProperty[int64](userNode, "lo")
+		if err != nil {
+			return nil, err
+		}
+		g, err := neo4j.GetProperty[int64](userNode, "go")
+		if err != nil {
+			return nil, err
+		}
+	*/
 	name, err := neo4j.GetProperty[string](userNode, "name")
 	if err != nil {
 		return nil, err
 	}
 
-	return &User{Name: name, Lo: l, Go: g}, nil
+	return &User{Name: name, Lo: 100, Go: 100}, nil
 }
 
 func createUser(ctx context.Context, user *User) neo4j.ManagedTransactionWorkT[*User] {
@@ -258,6 +260,7 @@ func getUsers(ctx context.Context, headVertex string, minDepth, maxDepth int) ne
 			if err != nil {
 				return nil, err
 			}
+			//	log.Println("got", user.Name)
 			users = append(users, user)
 		}
 
@@ -283,7 +286,7 @@ func main() {
 	}
 	defer driver.Close(ctx)
 	/*
-		partners, err := getPartners(ctx, driver, "user1", 0, 16)
+		partners, err := getPartners(ctx, driver, "user1", 1, 3)
 		if err != nil {
 			log.Fatal(err)
 		}
@@ -298,6 +301,7 @@ func main() {
 			log.Fatal(err)
 		}
 	*/
+
 	startTime := time.Now().UnixMilli()
 	if _, err := createBinnaryTreeUnwind(ctx, driver, 11); err != nil { //тут можно 3 аргументом количество вершин написать
 		log.Fatal(err)
