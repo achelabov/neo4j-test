@@ -54,3 +54,16 @@ BenchmarkGetPartnersFrom10To13Lvl100kVerticesTree-4            1         4827670
 BenchmarkGetPartnersFrom7To10Lvl100kVerticesTree-4             2          562781340 ns/op // 0,562781s
 BenchmarkGetPartnersFrom1To16Lvl100kVerticesTree-4             1        38732582739 ns/op // 38,73258s
 ```
+
+getting main bonus
+```
+BenchmarkGetMainBonusBronze-4                163           7810681 ns/op // 0,00781s
+BenchmarkGetMainBonusBronzePro-4             156           8152347 ns/op // 0,00815s
+BenchmarkGetMainBonusSilver-4                140           9102428 ns/op // 0,00910s
+BenchmarkGetMainBonusSilverPro-4             120           8582092 ns/op // 0,00858s
+BenchmarkGetMainBonusGold-4                  100          10623066 ns/op // 0,01062s
+BenchmarkGetMainBonusGoldPro-4                62          17159427 ns/op // 0,01716s
+BenchmarkGetMainBonusPlatinum-4               51          24927266 ns/op // 0,02493s
+BenchmarkGetMainBonusPlatinimPro-4            25          55779393 ns/op // 0,05578s
+BenchmarkGetMainBonusDiamond-4                12          99397576 ns/op // 0,09940s
+```

@@ -43,6 +43,21 @@ func handleCreatePartnerRecord(record *db.Record) (*User, error) {
 	return &User{Name: name, Lo: 100, Go: 100}, nil
 }
 
+func handleGetLo(record *db.Record) (int64, error) {
+	rawUserNode, found := record.Get("p")
+	if !found {
+		return 0, fmt.Errorf("could not find column")
+	}
+	userNode := rawUserNode.(neo4j.Node)
+
+	l, err := neo4j.GetProperty[int64](userNode, "lo")
+	if err != nil {
+		return 0, err
+	}
+
+	return l, nil
+}
+
 func createUser(ctx context.Context, user *User) neo4j.ManagedTransactionWorkT[*User] {
 	return func(tx neo4j.ManagedTransaction) (*User, error) {
 		records, err := tx.Run(ctx, "CREATE (p:Partner {name: $name, lo: $lo, go: $go}) RETURN p", map[string]any{
@@ -239,6 +254,47 @@ func createBinaryTree(ctx context.Context, driver neo4j.DriverWithContext, verti
 	return nil
 }
 
+type MainBonus struct {
+	Lo int64 `json:"lo"`
+}
+
+func getBouns(ctx context.Context, headVertex string, minDepth, maxDepth int) neo4j.ManagedTransactionWorkT[*MainBonus] {
+	return func(tx neo4j.ManagedTransaction) (*MainBonus, error) {
+		result, err := tx.Run(ctx,
+			fmt.Sprintf("MATCH (:Partner {name: $name})-[:HAS_PARTNER*%d..%d]->(p:Partner) RETURN p",
+				minDepth, maxDepth),
+			map[string]any{
+				"name": headVertex,
+				"min":  minDepth,
+				"max":  maxDepth,
+			})
+		if err != nil {
+			return nil, err
+		}
+
+		var bonus MainBonus
+		for result.Next(ctx) {
+			record := result.Record()
+			lo, err := handleGetLo(record)
+			if err != nil {
+				return nil, err
+			}
+			//	log.Println("got", user.Name)
+			bonus.Lo += lo
+		}
+
+		return &bonus, nil
+	}
+}
+
+func GetMainBonus(ctx context.Context, driver neo4j.DriverWithContext,
+	headVertex string, minDepth, maxDepth int) (*MainBonus, error) {
+	session := driver.NewSession(ctx, neo4j.SessionConfig{})
+	defer session.Close(ctx)
+
+	return neo4j.ExecuteRead(ctx, session, getBouns(ctx, headVertex, minDepth, maxDepth))
+}
+
 func getUsers(ctx context.Context, headVertex string, minDepth, maxDepth int) neo4j.ManagedTransactionWorkT[[]*User] {
 	return func(tx neo4j.ManagedTransaction) ([]*User, error) {
 		result, err := tx.Run(ctx,
@@ -301,13 +357,13 @@ func main() {
 			log.Fatal(err)
 		}
 	*/
-
-	startTime := time.Now().UnixMilli()
-	if _, err := createBinnaryTreeUnwind(ctx, driver, 11); err != nil {
-		log.Fatal(err)
-	}
-	log.Println("success. execution time:", time.Now().UnixMilli()-startTime, "unixMilli")
-
+	/*
+		startTime := time.Now().UnixMilli()
+		if _, err := createBinnaryTreeUnwind(ctx, driver, 11); err != nil {
+			log.Fatal(err)
+		}
+		log.Println("success. execution time:", time.Now().UnixMilli()-startTime, "unixMilli")
+	*/
 	/*
 		if err := createBinaryTreeRelations(ctx, driver, 50000); err != nil {
 			log.Fatal(err)
@@ -324,4 +380,10 @@ func main() {
 			log.Fatal(err)
 		}
 	*/
+
+	mainBonus, err := GetMainBonus(ctx, driver, "user1", 2, 2)
+	if err != nil {
+		log.Fatal(err)
+	}
+	log.Println("main bonus =", mainBonus.Lo)
 }
