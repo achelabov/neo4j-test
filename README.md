@@ -18,7 +18,7 @@ BenchmarkGetPartnersFrom10To14Lvl10kVerticesTree-4            5         20978881
 BenchmarkGetPartnersFrom1To14Lvl10kVerticesTree-4             5         234384866 ns/op // 0,23438s
 ```
 
-100k users traversal
+100k users traversal <br/>
 getting only vertices
 ```
 BenchmarkGetPartnersFrom16To16Lvl100kVerticesTree-4            2         982297238 ns/op // 0,98229s
